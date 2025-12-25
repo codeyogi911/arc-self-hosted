@@ -75,7 +75,7 @@ helm upgrade --install arc-runner-set \
     --namespace "$RUNNER_NAMESPACE" \
     --set githubConfigUrl="$GITHUB_CONFIG_URL" \
     --set githubConfigSecret=pre-defined-secret \
-    --values "$ROOT_DIR/helm/runner-scale-set-values.yaml" \
+    --values "$ROOT_DIR/helm/values.yaml" \
     oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set
 
 echo ""

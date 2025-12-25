@@ -110,11 +110,24 @@ flowchart TB
 
 ### Runner Scale Set Configuration
 
-Edit `helm/runner-scale-set-values.yaml` to customize:
-- Runner labels
-- Resource limits
-- Container mode (Docker-in-Docker, Kubernetes mode)
-- Min/max runners
+Edit `helm/values.yaml` to customize your runners. This is the official ARC values template with all available options documented.
+
+Common configurations:
+- `minRunners` / `maxRunners` - Autoscaling limits
+- `containerMode.type` - Set to `dind` for Docker-in-Docker support
+- `template.spec` - Full PodSpec for runner pods (resources, volumes, etc.)
+
+Example - enable Docker-in-Docker:
+```yaml
+containerMode:
+  type: "dind"
+```
+
+Example - set runner limits:
+```yaml
+minRunners: 1
+maxRunners: 10
+```
 
 ### Controller Configuration
 
