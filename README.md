@@ -1,4 +1,4 @@
-# ARC Self-Hosted Runners for BITASIA
+# ARC Self-Hosted Runners
 
 Self-hosted GitHub Actions runners using Actions Runner Controller (ARC) on Kubernetes.
 
@@ -40,7 +40,12 @@ chmod +x secret.sh
 
 ### 4. Deploy ARC
 
+Set your GitHub organization or repository URL, then deploy:
+
 ```bash
+export GITHUB_CONFIG_URL=https://github.com/YOUR_ORG
+# Or for a specific repo: export GITHUB_CONFIG_URL=https://github.com/YOUR_ORG/YOUR_REPO
+
 ./scripts/deploy-arc.sh
 ```
 
@@ -93,7 +98,7 @@ flowchart TB
         end
     end
     
-    github["🐙 GitHub API\n(BITASIA org)"]
+    github["🐙 GitHub API\n(your org/repo)"]
     
     listener <-->|"polls for jobs"| github
     controller -->|"scales"| arc-runners

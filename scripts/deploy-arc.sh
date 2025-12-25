@@ -6,7 +6,23 @@ ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 
 CONTROLLER_NAMESPACE="arc-systems"
 RUNNER_NAMESPACE="arc-runners"
-GITHUB_CONFIG_URL="https://github.com/BITASIA"
+
+# GitHub Config URL - set this to your organization or repository
+# Examples:
+#   Organization: https://github.com/my-org
+#   Repository:   https://github.com/my-org/my-repo
+GITHUB_CONFIG_URL="${GITHUB_CONFIG_URL:-}"
+
+if [[ -z "$GITHUB_CONFIG_URL" ]]; then
+    echo "❌ GITHUB_CONFIG_URL is not set!"
+    echo ""
+    echo "Set it before running this script:"
+    echo "  export GITHUB_CONFIG_URL=https://github.com/YOUR_ORG"
+    echo ""
+    echo "Or for a specific repository:"
+    echo "  export GITHUB_CONFIG_URL=https://github.com/YOUR_ORG/YOUR_REPO"
+    exit 1
+fi
 
 echo "🚀 Deploying Actions Runner Controller..."
 
