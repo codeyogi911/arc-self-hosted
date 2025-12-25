@@ -54,6 +54,10 @@ export GITHUB_CONFIG_URL=https://github.com/YOUR_ORG
 For workflows that use container jobs, deploy with Kubernetes mode:
 
 ```bash
+# First, set up OpenEBS for dynamic storage provisioning (required for local clusters)
+./scripts/setup-storage.sh
+
+# Then deploy with Kubernetes mode
 export GITHUB_CONFIG_URL=https://github.com/YOUR_ORG
 export CONTAINER_MODE=kubernetes
 

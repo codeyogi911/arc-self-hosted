@@ -15,11 +15,12 @@ minRunners: 0
 ## This runs each job container as a separate pod in the cluster
 containerMode:
   type: "kubernetes"
-  
+
   ## Work volume for sharing data between runner and job containers
+  ## For local clusters (kind), run ./scripts/setup-storage.sh first to install OpenEBS
   kubernetesModeWorkVolumeClaim:
     accessModes: ["ReadWriteOnce"]
-    storageClassName: "standard"  # Change this to match your cluster's storage class
+    storageClassName: "openebs-hostpath" # OpenEBS for local clusters, change for cloud
     resources:
       requests:
         storage: 10Gi
@@ -39,7 +40,7 @@ template:
               fieldRef:
                 fieldPath: metadata.name
           - name: ACTIONS_RUNNER_REQUIRE_JOB_CONTAINER
-            value: "false"  # Set to "true" to require all jobs use containers
+            value: "false" # Set to "true" to require all jobs use containers
         resources:
           limits:
             cpu: "2"
@@ -47,4 +48,3 @@ template:
           requests:
             cpu: 500m
             memory: 1Gi
-
