@@ -1,0 +1,23 @@
+# ARC Controller Configuration
+# See: https://github.com/actions/actions-runner-controller/blob/master/charts/gha-runner-scale-set-controller/values.yaml
+
+# Controller replicas (1 is sufficient for most setups)
+replicaCount: 1
+
+# Resource limits for controller
+resources:
+  limits:
+    cpu: 500m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# Logging level (debug, info, warn, error)
+logLevel: info
+
+# Metrics configuration
+metrics:
+  controllerManagerAddr: ":8080"
+  listenerAddr: ":8080"
+

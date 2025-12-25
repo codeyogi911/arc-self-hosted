@@ -1,0 +1,37 @@
+# Runner Scale Set Configuration
+# See: https://github.com/actions/actions-runner-controller/blob/master/charts/gha-runner-scale-set/values.yaml
+
+# Minimum number of runners to keep idle
+minRunners: 0
+
+# Maximum number of concurrent runners
+maxRunners: 5
+
+# Runner group (optional - must exist in GitHub)
+# runnerGroup: "default"
+
+# Runner labels (in addition to 'arc-runner-set')
+# template:
+#   spec:
+#     containers:
+#       - name: runner
+#         image: ghcr.io/actions/actions-runner:latest
+
+# Container mode configuration
+# For Docker-in-Docker support, uncomment below:
+# containerMode:
+#   type: dind
+
+# Resource limits for runner pods
+template:
+  spec:
+    containers:
+      - name: runner
+        resources:
+          limits:
+            cpu: "2"
+            memory: 4Gi
+          requests:
+            cpu: 500m
+            memory: 1Gi
+
