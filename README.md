@@ -49,6 +49,19 @@ export GITHUB_CONFIG_URL=https://github.com/YOUR_ORG
 ./scripts/deploy-arc.sh
 ```
 
+#### Kubernetes Mode (Optional)
+
+For workflows that use container jobs, deploy with Kubernetes mode:
+
+```bash
+export GITHUB_CONFIG_URL=https://github.com/YOUR_ORG
+export CONTAINER_MODE=kubernetes
+
+./scripts/deploy-arc.sh
+```
+
+Kubernetes mode runs each job container as a separate pod, providing better isolation and resource management. See [GitHub docs](https://docs.github.com/en/actions/tutorials/use-actions-runner-controller/deploy-runner-scale-sets#using-kubernetes-mode) for more details.
+
 ## Usage
 
 Once deployed, use `arc-runner-set` in your workflows:

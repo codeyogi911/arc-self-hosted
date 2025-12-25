@@ -1,0 +1,50 @@
+## Runner Scale Set Configuration - Kubernetes Mode
+## This configuration runs container jobs as separate Kubernetes pods
+## instead of using Docker-in-Docker (dind)
+##
+## For more info: https://docs.github.com/en/actions/tutorials/use-actions-runner-controller/deploy-runner-scale-sets#using-kubernetes-mode
+
+## githubConfigUrl and githubConfigSecret are set via helm --set flags
+## See deploy-arc.sh for usage
+
+## Autoscaling configuration
+maxRunners: 10
+minRunners: 0
+
+## Container mode: Kubernetes
+## This runs each job container as a separate pod in the cluster
+containerMode:
+  type: "kubernetes"
+  
+  ## Work volume for sharing data between runner and job containers
+  kubernetesModeWorkVolumeClaim:
+    accessModes: ["ReadWriteOnce"]
+    storageClassName: "standard"  # Change this to match your cluster's storage class
+    resources:
+      requests:
+        storage: 10Gi
+
+## Template for runner pods
+template:
+  spec:
+    containers:
+      - name: runner
+        image: shashwatjain/arc-runner:latest
+        command: ["/home/runner/run.sh"]
+        env:
+          - name: ACTIONS_RUNNER_CONTAINER_HOOKS
+            value: /home/runner/k8s/index.js
+          - name: ACTIONS_RUNNER_POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: ACTIONS_RUNNER_REQUIRE_JOB_CONTAINER
+            value: "false"  # Set to "true" to require all jobs use containers
+        resources:
+          limits:
+            cpu: "2"
+            memory: 4Gi
+          requests:
+            cpu: 500m
+            memory: 1Gi
+

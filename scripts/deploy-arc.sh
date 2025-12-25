@@ -13,6 +13,11 @@ RUNNER_NAMESPACE="arc-runners"
 #   Repository:   https://github.com/my-org/my-repo
 GITHUB_CONFIG_URL="${GITHUB_CONFIG_URL:-}"
 
+# Container mode: "default" or "kubernetes"
+# - default: Basic runner without container isolation
+# - kubernetes: Runs job containers as separate Kubernetes pods
+CONTAINER_MODE="${CONTAINER_MODE:-default}"
+
 if [[ -z "$GITHUB_CONFIG_URL" ]]; then
     echo "❌ GITHUB_CONFIG_URL is not set!"
     echo ""
@@ -21,10 +26,27 @@ if [[ -z "$GITHUB_CONFIG_URL" ]]; then
     echo ""
     echo "Or for a specific repository:"
     echo "  export GITHUB_CONFIG_URL=https://github.com/YOUR_ORG/YOUR_REPO"
+    echo ""
+    echo "Optional: Set container mode (default: default)"
+    echo "  export CONTAINER_MODE=kubernetes  # For Kubernetes mode"
     exit 1
 fi
 
+# Select values file based on container mode
+case "$CONTAINER_MODE" in
+    kubernetes|k8s)
+        VALUES_FILE="$ROOT_DIR/helm/values-kubernetes-mode.yaml"
+        MODE_DESC="Kubernetes mode (job containers run as separate pods)"
+        ;;
+    default|*)
+        VALUES_FILE="$ROOT_DIR/helm/values.yaml"
+        MODE_DESC="Default mode"
+        ;;
+esac
+
 echo "🚀 Deploying Actions Runner Controller..."
+echo "   Mode: $MODE_DESC"
+echo ""
 
 # Check if cluster is accessible
 if ! kubectl cluster-info &> /dev/null; then
@@ -70,12 +92,13 @@ fi
 
 # Step 3: Install Runner Scale Set
 echo ""
-echo "📦 Installing Runner Scale Set..."
+echo "📦 Installing Runner Scale Set with $MODE_DESC..."
+echo "   Using values: $VALUES_FILE"
 helm upgrade --install arc-runner-set \
     --namespace "$RUNNER_NAMESPACE" \
     --set githubConfigUrl="$GITHUB_CONFIG_URL" \
     --set githubConfigSecret=pre-defined-secret \
-    --values "$ROOT_DIR/helm/values.yaml" \
+    --values "$VALUES_FILE" \
     oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set
 
 echo ""
@@ -87,4 +110,3 @@ echo ""
 kubectl get pods -n "$CONTROLLER_NAMESPACE"
 echo ""
 echo "🎉 Use 'runs-on: arc-runner-set' in your workflows!"
-
