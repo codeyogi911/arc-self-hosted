@@ -77,6 +77,10 @@ kubectl get pods -n arc-runners -w
 # View logs
 kubectl logs -n arc-systems -l app.kubernetes.io/component=controller-manager
 
+# Upgrade ARC to latest version
+export GITHUB_CONFIG_URL=https://github.com/YOUR_ORG
+./scripts/upgrade-arc.sh
+
 # Teardown everything
 ./scripts/teardown.sh
 ```
