@@ -54,17 +54,13 @@ export GITHUB_CONFIG_URL=https://github.com/YOUR_ORG
 For workflows that use container jobs, deploy with Kubernetes mode:
 
 ```bash
-# First, set up OpenEBS for dynamic storage provisioning (required for local clusters)
-./scripts/setup-storage.sh
-
-# Then deploy with Kubernetes mode
 export GITHUB_CONFIG_URL=https://github.com/YOUR_ORG
 export CONTAINER_MODE=kubernetes
 
 ./scripts/deploy-arc.sh
 ```
 
-Kubernetes mode runs each job container as a separate pod, providing better isolation and resource management. See [GitHub docs](https://docs.github.com/en/actions/tutorials/use-actions-runner-controller/deploy-runner-scale-sets#using-kubernetes-mode) for more details.
+Kubernetes mode runs each job container as a separate pod, providing better isolation and resource management. It uses kind's built-in `standard` StorageClass for work volumes. See [GitHub docs](https://docs.github.com/en/actions/tutorials/use-actions-runner-controller/deploy-runner-scale-sets#using-kubernetes-mode) for more details.
 
 ## Usage
 

@@ -17,10 +17,9 @@ containerMode:
   type: "kubernetes"
 
   ## Work volume for sharing data between runner and job containers
-  ## For local clusters (kind), run ./scripts/setup-storage.sh first to install OpenEBS
   kubernetesModeWorkVolumeClaim:
     accessModes: ["ReadWriteOnce"]
-    storageClassName: "openebs-hostpath" # OpenEBS for local clusters, change for cloud
+    storageClassName: "standard" # kind's built-in local-path provisioner (no extra pods needed)
     resources:
       requests:
         storage: 10Gi
