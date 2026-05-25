@@ -29,7 +29,7 @@ template:
   spec:
     containers:
       - name: runner
-        image: shashwatjain/arc-runner:latest
+        image: shashwatjain/arc-runner:2.334.0 # overridden by deploy-arc.sh from .runner-version
         command: ["/home/runner/run.sh"]
         env:
           - name: ACTIONS_RUNNER_CONTAINER_HOOKS

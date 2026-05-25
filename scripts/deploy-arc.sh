@@ -6,6 +6,8 @@ ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 
 CONTROLLER_NAMESPACE="arc-systems"
 RUNNER_NAMESPACE="arc-runners"
+RUNNER_VERSION="$(tr -d '[:space:]' < "$ROOT_DIR/.runner-version")"
+RUNNER_IMAGE="${RUNNER_IMAGE:-shashwatjain/arc-runner:${RUNNER_VERSION}}"
 
 # GitHub Config URL - set this to your organization or repository
 # Examples:
@@ -46,6 +48,7 @@ esac
 
 echo "🚀 Deploying Actions Runner Controller..."
 echo "   Mode: $MODE_DESC"
+echo "   Runner image: $RUNNER_IMAGE"
 echo ""
 
 # Check if cluster is accessible
@@ -98,6 +101,7 @@ helm upgrade --install arc-runner-set \
     --namespace "$RUNNER_NAMESPACE" \
     --set githubConfigUrl="$GITHUB_CONFIG_URL" \
     --set githubConfigSecret=pre-defined-secret \
+    --set "template.spec.containers[0].image=$RUNNER_IMAGE" \
     --values "$VALUES_FILE" \
     oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set
 

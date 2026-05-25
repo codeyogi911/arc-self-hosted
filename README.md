@@ -78,6 +78,26 @@ jobs:
       - run: echo "Running on self-hosted ARC runner!"
 ```
 
+## Runner Image Updates
+
+The runner binary version is pinned in `.runner-version`. GitHub periodically deprecates old versions, so keep this up to date.
+
+```bash
+# Check if a newer runner version is available
+./scripts/rebuild-runner-image.sh --check
+
+# Rebuild with the latest upstream version, push, and reload kind
+./scripts/rebuild-runner-image.sh --upgrade
+
+# After CI pushes a new image, pull it into your local kind cluster
+./scripts/rebuild-runner-image.sh --load-only
+```
+
+A GitHub Actions workflow (`.github/workflows/rebuild-runner-image.yml`) runs every Monday to check for new upstream versions, rebuild the image, and push to Docker Hub. Add these repository secrets for it to work:
+
+- `DOCKERHUB_USERNAME`
+- `DOCKERHUB_TOKEN`
+
 ## Management Commands
 
 ```bash
@@ -171,6 +191,12 @@ kubectl logs -n arc-systems -l app.kubernetes.io/component=listener
 
 # Verify GitHub App permissions
 # Ensure app has: Administration (Read & Write), Self-hosted runners (Read & Write)
+
+# Check for deprecated runner version in pod logs
+kubectl logs -n arc-runners -l actions.github.com/scale-set-name=arc-runner-set --tail=20
+
+# Rebuild with the latest runner version
+./scripts/rebuild-runner-image.sh --upgrade
 ```
 
 ## GitHub App Setup

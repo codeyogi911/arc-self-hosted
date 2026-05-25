@@ -1,4 +1,5 @@
-FROM ghcr.io/actions/actions-runner:latest
+ARG RUNNER_VERSION=2.334.0
+FROM ghcr.io/actions/actions-runner:${RUNNER_VERSION}
 
 # Switch to root to install packages
 USER root
@@ -27,4 +28,3 @@ RUN curl -L "https://packages.cloudfoundry.org/stable?release=linux64-binary&ver
 
 # Switch back to runner user
 USER runner
-
