@@ -20,7 +20,15 @@ RUN apt-get update && apt-get install -y \
     # Additional useful tools
     git \
     curl \
+    # Java runtime for the SAP AMS DCL->DCN compiler. @sap/ams-dev's `compile-dcl`
+    # (run both by the CDS test boot and by scripts/compile-ams-dcn-for-tests.mjs)
+    # shells out to a bundled `dcl.jar`, gated on `java --version`. Without a JRE on
+    # PATH the AMS authorization bundle never compiles ("no authorization data loaded").
+    openjdk-17-jre-headless \
     && rm -rf /var/lib/apt/lists/*
+
+# Fail the build early if Java isn't on PATH (the SAP AMS dcl-compiler depends on it).
+RUN java -version
 
 # Install Cloud Foundry CLI
 RUN curl -L "https://packages.cloudfoundry.org/stable?release=linux64-binary&version=v8&source=github" | tar -zx -C /usr/local/bin \
