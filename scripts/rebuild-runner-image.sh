@@ -1,29 +1,32 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 
 RUNNER_VERSION_FILE="$ROOT_DIR/.runner-version"
-DOCKER_IMAGE="${DOCKER_IMAGE:-shashwatjain/arc-runner}"
-KIND_CLUSTER="${KIND_CLUSTER:-arc-cluster}"
+RUNNER_IMAGE_REPOSITORY="${RUNNER_IMAGE_REPOSITORY:-ghcr.io/codeyogi911/arc-runner}"
+COLIMA_PROFILE="${COLIMA_PROFILE:-arc}"
 RUNNER_NAMESPACE="${RUNNER_NAMESPACE:-arc-runners}"
 
 usage() {
     cat <<EOF
 Usage: $(basename "$0") [OPTIONS]
 
-Rebuild the custom runner image and deploy it to the local kind cluster.
+Build the minimal runner image directly in Colima's K3s image store.
 
 Options:
-  --check       Compare pinned version with latest upstream runner version
-  --upgrade     Bump to latest upstream version if newer, then rebuild
-  --load-only   Pull the pinned version from Docker Hub and load into kind
-  --no-push     Build locally without pushing to Docker Hub
-  --no-reload   Skip loading into kind and restarting runner pods
+  --check       Compare the pinned runner version with the latest upstream release
+  --upgrade     Bump to the latest release, build it locally, and reload idle runners
+  --pull-only   Pull the pinned image from GHCR instead of building it
+  --no-reload   Do not update the deployed scale set after building or pulling
   -h, --help    Show this help
 
-Version is pinned in .runner-version (currently: $(cat "$RUNNER_VERSION_FILE" 2>/dev/null || echo "unknown")).
+The multi-architecture GHCR image is published by
+.github/workflows/rebuild-runner-image.yml. Local builds are native ARM64 and
+are stored in the k8s.io containerd namespace, so K3s can use them immediately.
+
+Pinned version: $(cat "$RUNNER_VERSION_FILE" 2>/dev/null || echo "unknown")
 EOF
 }
 
@@ -37,81 +40,87 @@ write_version() {
 
 get_upstream_version() {
     echo "🔍 Checking latest upstream runner version..." >&2
-    docker pull ghcr.io/actions/actions-runner:latest -q >&2
-    docker run --rm ghcr.io/actions/actions-runner:latest \
-        /home/runner/bin/Runner.Listener --version 2>&1 \
-        | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$'
+    curl -fsSL https://api.github.com/repos/actions/runner/releases/latest \
+        | sed -n 's/.*"tag_name": *"v\([^"]*\)".*/\1/p' \
+        | head -1
+}
+
+nerdctl_k8s() {
+    colima nerdctl --profile "$COLIMA_PROFILE" -- --namespace k8s.io "$@"
+}
+
+ensure_runtime() {
+    if ! colima status --profile "$COLIMA_PROFILE" &> /dev/null; then
+        echo "❌ Colima profile '$COLIMA_PROFILE' is not running."
+        echo "   Run ./scripts/create-cluster.sh first."
+        exit 1
+    fi
 }
 
 build_image() {
     local version="$1"
-    echo "🔨 Building $DOCKER_IMAGE:$version..."
-    docker build \
+    echo "🔨 Building $RUNNER_IMAGE_REPOSITORY:$version natively on ARM64..."
+    nerdctl_k8s build \
+        --pull \
         --build-arg "RUNNER_VERSION=$version" \
-        -t "$DOCKER_IMAGE:$version" \
-        -t "$DOCKER_IMAGE:latest" \
+        --tag "$RUNNER_IMAGE_REPOSITORY:$version" \
+        --tag "$RUNNER_IMAGE_REPOSITORY:latest" \
         "$ROOT_DIR"
 }
 
-push_image() {
+pull_image() {
     local version="$1"
-    echo "📤 Pushing $DOCKER_IMAGE:$version and :latest..."
-    docker push "$DOCKER_IMAGE:$version"
-    docker push "$DOCKER_IMAGE:latest"
-}
-
-load_into_kind() {
-    local version="$1"
-    if ! command -v kind &> /dev/null; then
-        echo "⚠️  kind not found, skipping cluster load."
-        return
-    fi
-    if ! kind get clusters 2>/dev/null | grep -qx "$KIND_CLUSTER"; then
-        echo "⚠️  kind cluster '$KIND_CLUSTER' not found, skipping cluster load."
-        return
-    fi
-
-    echo "📦 Loading image into kind cluster '$KIND_CLUSTER'..."
-    kind load docker-image "$DOCKER_IMAGE:$version" --name "$KIND_CLUSTER"
-    kind load docker-image "$DOCKER_IMAGE:latest" --name "$KIND_CLUSTER"
+    echo "📥 Pulling $RUNNER_IMAGE_REPOSITORY:$version into K3s..."
+    nerdctl_k8s pull "$RUNNER_IMAGE_REPOSITORY:$version"
 }
 
 reload_runners() {
     local version="$1"
     if ! kubectl cluster-info &> /dev/null; then
-        echo "⚠️  Kubernetes cluster not reachable, skipping runner reload."
+        echo "⚠️  Kubernetes is not reachable; skipping runner reload."
         return
     fi
 
     local runner_set
     runner_set="$(kubectl get autoscalingrunnersets -n "$RUNNER_NAMESPACE" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"
     if [[ -z "$runner_set" ]]; then
-        echo "⚠️  No AutoscalingRunnerSet found in $RUNNER_NAMESPACE, skipping runner reload."
+        echo "ℹ️  No deployed runner scale set yet; the image is ready for deployment."
         return
     fi
 
-    echo "🔄 Updating runner scale set to use $DOCKER_IMAGE:$version..."
+    local image="$RUNNER_IMAGE_REPOSITORY:$version"
+    echo "🔄 Updating runner scale set to use $image..."
     kubectl patch autoscalingrunnersets "$runner_set" \
         -n "$RUNNER_NAMESPACE" \
         --type=json \
-        -p="[{\"op\":\"replace\",\"path\":\"/spec/template/spec/containers/0/image\",\"value\":\"$DOCKER_IMAGE:$version\"}]"
+        -p="[{\"op\":\"replace\",\"path\":\"/spec/template/spec/containers/0/image\",\"value\":\"$image\"}]"
 
-    echo "🧹 Restarting runner pods..."
-    kubectl delete pods -n "$RUNNER_NAMESPACE" -l actions.github.com/scale-set-name=arc-runner-set --ignore-not-found
+    # Update templates already materialized by ARC. Existing runner pods are
+    # deliberately left untouched: an apparently idle runner can receive a job
+    # between inspection and deletion. Ephemeral runners retire naturally, and
+    # all subsequently created runners use the new image.
+    local ephemeral_runner_set
+    while IFS= read -r ephemeral_runner_set; do
+        [[ -z "$ephemeral_runner_set" ]] && continue
+        kubectl patch ephemeralrunnersets "$ephemeral_runner_set" \
+            -n "$RUNNER_NAMESPACE" \
+            --type=json \
+            -p="[{\"op\":\"replace\",\"path\":\"/spec/ephemeralRunnerSpec/spec/containers/0/image\",\"value\":\"$image\"}]"
+    done < <(kubectl get ephemeralrunnersets -n "$RUNNER_NAMESPACE" -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}')
+
+    echo "✅ Future runner pods will use $image; active runners were not interrupted."
 }
 
 CHECK=false
 UPGRADE=false
-LOAD_ONLY=false
-NO_PUSH=false
+PULL_ONLY=false
 NO_RELOAD=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --check) CHECK=true; shift ;;
         --upgrade) UPGRADE=true; shift ;;
-        --load-only) LOAD_ONLY=true; shift ;;
-        --no-push) NO_PUSH=true; shift ;;
+        --pull-only) PULL_ONLY=true; shift ;;
         --no-reload) NO_RELOAD=true; shift ;;
         -h|--help) usage; exit 0 ;;
         *) echo "Unknown option: $1"; usage; exit 1 ;;
@@ -125,53 +134,40 @@ fi
 
 CURRENT_VERSION="$(read_version)"
 
-if $CHECK || $UPGRADE || ! $LOAD_ONLY; then
+if $CHECK || $UPGRADE; then
     UPSTREAM_VERSION="$(get_upstream_version)"
+    if [[ -z "$UPSTREAM_VERSION" ]]; then
+        echo "❌ Could not determine the latest upstream runner version."
+        exit 1
+    fi
 fi
 
 if $CHECK; then
     echo "Pinned version:   $CURRENT_VERSION"
     echo "Upstream version: $UPSTREAM_VERSION"
-    if [[ "$CURRENT_VERSION" == "$UPSTREAM_VERSION" ]]; then
-        echo "✅ Runner image is up to date."
-    else
-        echo "⚠️  A newer runner version is available. Run: ./scripts/rebuild-runner-image.sh --upgrade"
-    fi
+    [[ "$CURRENT_VERSION" == "$UPSTREAM_VERSION" ]] \
+        && echo "✅ Runner image is up to date." \
+        || echo "⚠️  A newer version is available. Run: $0 --upgrade"
     exit 0
 fi
 
-if $UPGRADE; then
-    if [[ "$CURRENT_VERSION" == "$UPSTREAM_VERSION" ]]; then
-        echo "✅ Already on latest runner version ($CURRENT_VERSION)."
-    else
-        echo "⬆️  Upgrading runner version: $CURRENT_VERSION -> $UPSTREAM_VERSION"
-        write_version "$UPSTREAM_VERSION"
-        CURRENT_VERSION="$UPSTREAM_VERSION"
-    fi
+if $UPGRADE && [[ "$CURRENT_VERSION" != "$UPSTREAM_VERSION" ]]; then
+    echo "⬆️  Upgrading runner version: $CURRENT_VERSION -> $UPSTREAM_VERSION"
+    write_version "$UPSTREAM_VERSION"
+    CURRENT_VERSION="$UPSTREAM_VERSION"
 fi
 
-if $LOAD_ONLY; then
-    echo "📥 Pulling $DOCKER_IMAGE:$CURRENT_VERSION..."
-    docker pull "$DOCKER_IMAGE:$CURRENT_VERSION"
-    load_into_kind "$CURRENT_VERSION"
-    if ! $NO_RELOAD; then
-        reload_runners "$CURRENT_VERSION"
-    fi
-    echo "✅ Loaded $DOCKER_IMAGE:$CURRENT_VERSION into kind."
-    exit 0
+ensure_runtime
+
+if $PULL_ONLY; then
+    pull_image "$CURRENT_VERSION"
+else
+    build_image "$CURRENT_VERSION"
 fi
-
-build_image "$CURRENT_VERSION"
-
-if ! $NO_PUSH; then
-    push_image "$CURRENT_VERSION"
-fi
-
-load_into_kind "$CURRENT_VERSION"
 
 if ! $NO_RELOAD; then
     reload_runners "$CURRENT_VERSION"
 fi
 
-echo ""
-echo "✅ Runner image ready: $DOCKER_IMAGE:$CURRENT_VERSION"
+echo
+echo "✅ Runner image ready: $RUNNER_IMAGE_REPOSITORY:$CURRENT_VERSION"

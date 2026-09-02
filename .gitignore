@@ -16,3 +16,5 @@ secret.sh
 *.tmp
 *.log
 
+# Generated from dashboard/index.template.html by the maintenance job
+dashboard/index.html

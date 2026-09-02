@@ -8,7 +8,7 @@
 ## See deploy-arc.sh for usage
 
 ## Autoscaling configuration
-maxRunners: 10
+maxRunners: 4
 minRunners: 0
 
 ## Container mode: Kubernetes
@@ -19,7 +19,7 @@ containerMode:
   ## Work volume for sharing data between runner and job containers
   kubernetesModeWorkVolumeClaim:
     accessModes: ["ReadWriteOnce"]
-    storageClassName: "standard" # kind's built-in local-path provisioner (no extra pods needed)
+    storageClassName: "local-path" # K3s local-path provisioner
     resources:
       requests:
         storage: 10Gi
@@ -29,7 +29,8 @@ template:
   spec:
     containers:
       - name: runner
-        image: shashwatjain/arc-runner:2.334.0 # overridden by deploy-arc.sh from .runner-version
+        image: __RUNNER_IMAGE__ # rendered by deploy-arc.sh from .runner-version
+        imagePullPolicy: IfNotPresent
         command: ["/home/runner/run.sh"]
         env:
           - name: ACTIONS_RUNNER_CONTAINER_HOOKS
@@ -45,5 +46,5 @@ template:
             cpu: "2"
             memory: 4Gi
           requests:
-            cpu: 500m
-            memory: 1Gi
+            cpu: 1500m
+            memory: 2Gi

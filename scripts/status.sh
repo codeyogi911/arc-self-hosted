@@ -1,7 +1,12 @@
 #!/bin/bash
+set -euo pipefail
 
 echo "📊 ARC Deployment Status"
 echo "========================"
+echo ""
+
+echo "🔹 Colima Runtime:"
+colima status --profile "${COLIMA_PROFILE:-arc}" --extended 2>/dev/null || echo "   ❌ Colima profile is not running"
 echo ""
 
 # Check cluster
@@ -37,4 +42,3 @@ echo ""
 # Recent events
 echo "🔹 Recent Events:"
 kubectl get events -n arc-systems --sort-by='.lastTimestamp' 2>/dev/null | tail -5
-
