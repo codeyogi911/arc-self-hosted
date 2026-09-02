@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(dirname "$SCRIPT_DIR")"
@@ -7,7 +7,7 @@ ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 CONTROLLER_NAMESPACE="arc-systems"
 RUNNER_NAMESPACE="arc-runners"
 RUNNER_VERSION="$(tr -d '[:space:]' < "$ROOT_DIR/.runner-version")"
-RUNNER_IMAGE="${RUNNER_IMAGE:-shashwatjain/arc-runner:${RUNNER_VERSION}}"
+RUNNER_IMAGE="${RUNNER_IMAGE:-ghcr.io/codeyogi911/arc-runner:${RUNNER_VERSION}}"
 
 # GitHub Config URL - set this to your organization or repository
 # Examples:
@@ -16,7 +16,7 @@ RUNNER_IMAGE="${RUNNER_IMAGE:-shashwatjain/arc-runner:${RUNNER_VERSION}}"
 GITHUB_CONFIG_URL="${GITHUB_CONFIG_URL:-}"
 
 # Container mode: "default" or "kubernetes"
-# - default: Basic runner without container isolation
+# - default: One runner pod per job; fastest for the current workflows
 # - kubernetes: Runs job containers as separate Kubernetes pods
 CONTAINER_MODE="${CONTAINER_MODE:-default}"
 
@@ -46,6 +46,13 @@ case "$CONTAINER_MODE" in
         ;;
 esac
 
+# Render the pinned runner image into the selected values file. Helm does not
+# deep-merge lists: overriding only containers[0].image via --set can produce a
+# second, nameless container beside the chart's generated runner container.
+RENDERED_VALUES="$(mktemp)"
+trap 'rm -f "$RENDERED_VALUES"' EXIT
+sed "s|__RUNNER_IMAGE__|$RUNNER_IMAGE|g" "$VALUES_FILE" > "$RENDERED_VALUES"
+
 echo "🚀 Deploying Actions Runner Controller..."
 echo "   Mode: $MODE_DESC"
 echo "   Runner image: $RUNNER_IMAGE"
@@ -55,6 +62,14 @@ echo ""
 if ! kubectl cluster-info &> /dev/null; then
     echo "❌ Cannot connect to Kubernetes cluster."
     echo "   Run ./scripts/create-cluster.sh first."
+    exit 1
+fi
+
+CURRENT_CONTEXT="$(kubectl config current-context)"
+EXPECTED_CONTEXT="${KUBERNETES_CONTEXT:-colima-${COLIMA_PROFILE:-arc}}"
+if [[ "$CURRENT_CONTEXT" != "$EXPECTED_CONTEXT" ]]; then
+    echo "❌ Current context is '$CURRENT_CONTEXT'; expected '$EXPECTED_CONTEXT'."
+    echo "   Switch contexts, or set KUBERNETES_CONTEXT if this is intentional."
     exit 1
 fi
 
@@ -101,8 +116,7 @@ helm upgrade --install arc-runner-set \
     --namespace "$RUNNER_NAMESPACE" \
     --set githubConfigUrl="$GITHUB_CONFIG_URL" \
     --set githubConfigSecret=pre-defined-secret \
-    --set "template.spec.containers[0].image=$RUNNER_IMAGE" \
-    --values "$VALUES_FILE" \
+    --values "$RENDERED_VALUES" \
     oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set
 
 echo ""

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.codeyogi911.arc-idle-maintenance</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>__ARC_IDLE_MAINTENANCE_SCRIPT__</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StartInterval</key>
+    <integer>300</integer>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <key>HOME</key>
+        <string>__HOME__</string>
+        <key>ARC_COLIMA_PROFILE</key>
+        <string>arc</string>
+        <key>ARC_KUBE_CONTEXT</key>
+        <string>colima-arc</string>
+        <key>ARC_RUNNER_NAMESPACE</key>
+        <string>arc-runners</string>
+        <key>ARC_RUNNER_SET</key>
+        <string>arc-runner-set</string>
+        <key>ARC_IDLE_MINUTES</key>
+        <string>30</string>
+        <key>ARC_MEMORY_THRESHOLD_GIB</key>
+        <string>16</string>
+        <key>ARC_MAINTENANCE_STATE_DIR</key>
+        <string>__ARC_IDLE_MAINTENANCE_STATE_DIR__</string>
+    </dict>
+    <key>ProcessType</key>
+    <string>Background</string>
+    <key>LowPriorityIO</key>
+    <true/>
+    <key>Nice</key>
+    <integer>10</integer>
+    <key>StandardOutPath</key>
+    <string>/tmp/arc-idle-maintenance.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/arc-idle-maintenance.log</string>
+</dict>
+</plist>

@@ -1,0 +1,4 @@
+#!/bin/bash
+set -euo pipefail
+
+printf '%s\n' "$*" >> "${FAKE_COLIMA_LOG:?FAKE_COLIMA_LOG is required}"

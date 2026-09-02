@@ -1,0 +1,24 @@
+#!/bin/bash
+set -euo pipefail
+
+if [[ "${FAKE_KUBECTL_FAIL:-0}" == "1" ]]; then
+    exit 1
+fi
+
+case " $* " in
+    *" get autoscalingrunnerset.actions.github.com "*)
+        printf '%s\n' "${FAKE_ARC_COUNTS:-0 0 0}"
+        ;;
+    *" get pods "*)
+        pod_count="${FAKE_POD_COUNT:-0}"
+        for (( index = 1; index <= pod_count; index++ )); do
+            printf 'pod/fake-runner-%s\n' "$index"
+        done
+        ;;
+    *" wait --for=condition=Ready node "*)
+        ;;
+    *)
+        echo "Unexpected fake kubectl arguments: $*" >&2
+        exit 1
+        ;;
+esac

@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="en" data-tone="__TONE__">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="refresh" content="60">
+  <meta name="color-scheme" content="dark light">
+  <title>ARC VM Guard</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b1018;
+      --surface: #121a26;
+      --surface-2: #172231;
+      --border: #263448;
+      --text: #edf3fb;
+      --muted: #91a1b6;
+      --accent: #62d6a5;
+      --accent-soft: rgba(98, 214, 165, .13);
+      --warning: #f5bf64;
+      --warning-soft: rgba(245, 191, 100, .13);
+      --danger: #ff7e88;
+      --danger-soft: rgba(255, 126, 136, .13);
+      --blue: #78a9ff;
+      --blue-soft: rgba(120, 169, 255, .13);
+      --shadow: 0 24px 80px rgba(0, 0, 0, .26);
+    }
+
+    @media (prefers-color-scheme: light) {
+      :root {
+        color-scheme: light;
+        --bg: #f2f5f9;
+        --surface: #ffffff;
+        --surface-2: #f7f9fc;
+        --border: #dce3ed;
+        --text: #172033;
+        --muted: #637087;
+        --accent: #167854;
+        --accent-soft: rgba(22, 120, 84, .09);
+        --warning: #9b6213;
+        --warning-soft: rgba(155, 98, 19, .09);
+        --danger: #b43b49;
+        --danger-soft: rgba(180, 59, 73, .09);
+        --blue: #345fa8;
+        --blue-soft: rgba(52, 95, 168, .09);
+        --shadow: 0 22px 60px rgba(35, 49, 70, .10);
+      }
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-width: 320px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      letter-spacing: -.01em;
+    }
+
+    .shell {
+      width: min(1120px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 32px 0 44px;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 22px;
+    }
+
+    .brand { display: flex; align-items: center; gap: 12px; }
+
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 38px;
+      height: 38px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    h1, h2, p { margin: 0; }
+    h1 { font-size: clamp(18px, 2.4vw, 24px); font-weight: 650; }
+    h2 { font-size: 15px; font-weight: 650; }
+
+    .eyebrow {
+      margin-bottom: 5px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 650;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    .freshness { text-align: right; color: var(--muted); font-size: 12px; line-height: 1.55; }
+    .freshness strong { color: var(--text); font-weight: 600; }
+
+    .status-panel {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 26px;
+      min-height: 180px;
+      padding: clamp(24px, 4vw, 42px);
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .status-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+      color: var(--accent);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .status-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: currentColor;
+      box-shadow: 0 0 0 5px var(--accent-soft);
+    }
+
+    .status-panel h2 { max-width: 700px; font-size: clamp(28px, 5vw, 48px); line-height: 1.05; }
+    .status-panel p { max-width: 690px; margin-top: 14px; color: var(--muted); font-size: 15px; line-height: 1.55; }
+
+    .guard-symbol {
+      display: grid;
+      place-items: center;
+      width: 92px;
+      height: 92px;
+      border-radius: 50%;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 34px;
+      font-weight: 750;
+      letter-spacing: 0;
+    }
+
+    html[data-tone="busy"] { --accent: var(--danger); --accent-soft: var(--danger-soft); }
+    html[data-tone="warning"] { --accent: var(--warning); --accent-soft: var(--warning-soft); }
+    html[data-tone="waiting"] { --accent: var(--blue); --accent-soft: var(--blue-soft); }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin: 14px 0 26px;
+    }
+
+    .metric {
+      min-width: 0;
+      padding: 20px;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: var(--surface);
+    }
+
+    .metric-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+    .metric-label { color: var(--muted); font-size: 12px; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; }
+    .metric-value { margin-top: 8px; font-size: 30px; font-weight: 680; font-variant-numeric: tabular-nums; }
+    .metric-unit { color: var(--muted); font-size: 13px; font-weight: 500; }
+    .metric-detail { margin-top: 8px; color: var(--muted); font-size: 12px; line-height: 1.45; }
+
+    .meter {
+      height: 6px;
+      margin-top: 16px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: var(--surface-2);
+    }
+
+    .meter > span { display: block; width: 0; height: 100%; border-radius: inherit; background: var(--accent); }
+
+    .content-grid { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(270px, .65fr); gap: 18px; }
+    .section { padding: 24px; border: 1px solid var(--border); border-radius: 18px; background: var(--surface); }
+    .section-title { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+    .section-kicker { color: var(--muted); font-size: 12px; }
+
+    .conditions { display: grid; gap: 0; }
+    .condition { position: relative; display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 14px; padding: 0 0 22px; }
+    .condition:last-child { padding-bottom: 0; }
+    .condition:not(:last-child)::after { content: ""; position: absolute; top: 25px; bottom: 0; left: 13px; width: 1px; background: var(--border); }
+
+    .condition-index {
+      z-index: 1;
+      display: grid;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      border: 1px solid var(--border);
+      border-radius: 50%;
+      background: var(--surface-2);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .condition.pass .condition-index { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+    .condition.block .condition-index { border-color: var(--danger); background: var(--danger-soft); color: var(--danger); }
+    .condition-title { padding-top: 3px; font-size: 14px; font-weight: 650; }
+    .condition-detail { margin-top: 5px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+
+    .badge {
+      margin-top: 3px;
+      padding: 5px 9px;
+      border-radius: 999px;
+      background: var(--surface-2);
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .condition.pass .badge { background: var(--accent-soft); color: var(--accent); }
+    .condition.block .badge { background: var(--danger-soft); color: var(--danger); }
+
+    .decision {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 100%;
+    }
+
+    .decision-copy { margin-top: 10px; color: var(--text); font-size: 20px; font-weight: 630; line-height: 1.35; }
+    .decision-note { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); color: var(--muted); font-size: 12px; line-height: 1.55; }
+
+    .specs { display: grid; grid-template-columns: 1fr auto; gap: 12px 18px; margin-top: 28px; }
+    .specs dt { color: var(--muted); font-size: 12px; }
+    .specs dd { margin: 0; text-align: right; font-size: 12px; font-weight: 650; font-variant-numeric: tabular-nums; }
+
+    footer { display: flex; justify-content: space-between; gap: 18px; margin-top: 18px; color: var(--muted); font-size: 11px; line-height: 1.5; }
+
+    @media (max-width: 780px) {
+      .status-panel { grid-template-columns: 1fr; }
+      .guard-symbol { display: none; }
+      .metrics, .content-grid { grid-template-columns: 1fr; }
+      .metric { padding: 18px; }
+    }
+
+    @media (max-width: 520px) {
+      .shell { width: min(100% - 20px, 1120px); padding-top: 20px; }
+      header { align-items: flex-start; }
+      .freshness { max-width: 145px; }
+      .status-panel { padding: 22px; border-radius: 16px; }
+      .section { padding: 18px; }
+      .condition { grid-template-columns: 28px minmax(0, 1fr); }
+      .condition .badge { grid-column: 2; justify-self: start; margin-top: -10px; }
+      footer { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">A</div>
+        <div>
+          <div class="eyebrow">Mac Studio · Colima</div>
+          <h1>ARC VM Guard</h1>
+        </div>
+      </div>
+      <div class="freshness">
+        <strong id="freshness">Snapshot ready</strong><br>
+        __UPDATED_AT__
+      </div>
+    </header>
+
+    <main>
+      <section class="status-panel" aria-labelledby="status-title">
+        <div>
+          <div class="status-label"><span class="status-dot" aria-hidden="true"></span>__STATUS_LABEL__</div>
+          <h2 id="status-title">__STATUS_TITLE__</h2>
+          <p>__STATUS_DETAIL__</p>
+        </div>
+        <div class="guard-symbol" aria-hidden="true">✓</div>
+      </section>
+
+      <section class="metrics" aria-label="Current metrics">
+        <article class="metric">
+          <div class="metric-head"><span class="metric-label">Runner activity</span><span class="metric-unit">max 5</span></div>
+          <div class="metric-value">__ACTIVE_TOTAL__ <span class="metric-unit">active pods</span></div>
+          <div class="metric-detail">Current __CURRENT__ · Pending __PENDING__ · Running __RUNNING__ · Pods __PODS__</div>
+        </article>
+        <article class="metric">
+          <div class="metric-head"><span class="metric-label">VZ host RSS</span><span class="metric-unit">restart at __MEMORY_THRESHOLD__ GiB</span></div>
+          <div class="metric-value">__RSS_GIB__ <span class="metric-unit">GiB RSS</span></div>
+          <div class="meter" role="progressbar" aria-label="VZ memory against restart threshold" aria-valuenow="__MEMORY_PROGRESS__" aria-valuemin="0" aria-valuemax="100"><span style="width: __MEMORY_PROGRESS__%"></span></div>
+          <div class="metric-detail">Host RSS includes VM mappings and can exceed the 24 GiB guest ceiling.</div>
+        </article>
+        <article class="metric">
+          <div class="metric-head"><span class="metric-label">Continuous idle</span><span class="metric-unit">requires __IDLE_REQUIRED__ min</span></div>
+          <div class="metric-value">__IDLE_MINUTES__ <span class="metric-unit">minutes</span></div>
+          <div class="meter" role="progressbar" aria-label="Idle time against required window" aria-valuenow="__IDLE_PROGRESS__" aria-valuemin="0" aria-valuemax="100"><span style="width: __IDLE_PROGRESS__%"></span></div>
+        </article>
+      </section>
+
+      <div class="content-grid">
+        <section class="section" aria-labelledby="conditions-title">
+          <div class="section-title">
+            <h2 id="conditions-title">Restart conditions</h2>
+            <span class="section-kicker">All must pass</span>
+          </div>
+          <div class="conditions">
+            <article class="condition __CLUSTER_CLASS__">
+              <div class="condition-index">1</div>
+              <div><div class="condition-title">ARC state is readable</div><div class="condition-detail">__CLUSTER_DETAIL__</div></div>
+              <span class="badge">__CLUSTER_BADGE__</span>
+            </article>
+            <article class="condition __RUNNERS_CLASS__">
+              <div class="condition-index">2</div>
+              <div><div class="condition-title">No runner activity</div><div class="condition-detail">__RUNNERS_DETAIL__</div></div>
+              <span class="badge">__RUNNERS_BADGE__</span>
+            </article>
+            <article class="condition __IDLE_CLASS__">
+              <div class="condition-index">3</div>
+              <div><div class="condition-title">Idle window completed</div><div class="condition-detail">__IDLE_DETAIL__</div></div>
+              <span class="badge">__IDLE_BADGE__</span>
+            </article>
+            <article class="condition __MEMORY_CLASS__">
+              <div class="condition-index">4</div>
+              <div><div class="condition-title">ARC VZ process identified</div><div class="condition-detail">__MEMORY_DETAIL__</div></div>
+              <span class="badge">__MEMORY_BADGE__</span>
+            </article>
+            <article class="condition __THRESHOLD_CLASS__">
+              <div class="condition-index">5</div>
+              <div><div class="condition-title">Memory threshold reached</div><div class="condition-detail">__THRESHOLD_DETAIL__</div></div>
+              <span class="badge">__THRESHOLD_BADGE__</span>
+            </article>
+            <article class="condition wait">
+              <div class="condition-index">6</div>
+              <div><div class="condition-title">Final race-condition check</div><div class="condition-detail">ARC is queried again immediately before Colima restarts.</div></div>
+              <span class="badge">Just in time</span>
+            </article>
+          </div>
+        </section>
+
+        <aside class="section decision" aria-labelledby="decision-title">
+          <div>
+            <div class="eyebrow">Latest decision</div>
+            <h2 id="decision-title" class="decision-copy">__DECISION__</h2>
+            <p class="decision-note">This dashboard is a local snapshot. The maintenance service remains fail-closed: missing data prevents a restart.</p>
+          </div>
+          <dl class="specs">
+            <dt>VM profile</dt><dd>arc</dd>
+            <dt>VM resources</dt><dd>12 CPU · 24 GiB</dd>
+            <dt>Runner ceiling</dt><dd>5 jobs</dd>
+            <dt>Check interval</dt><dd>__CHECK_INTERVAL__ sec</dd>
+          </dl>
+        </aside>
+      </div>
+    </main>
+
+    <footer>
+      <span>No server, network request, or browser permission is required.</span>
+      <span>Auto-reloads every 60 seconds · source refreshes every __CHECK_INTERVAL__ seconds</span>
+    </footer>
+  </div>
+
+  <script>
+    (() => {
+      const updatedAt = Number('__UPDATED_EPOCH__') * 1000;
+      const nextCheckAt = Number('__NEXT_CHECK_EPOCH__') * 1000;
+      const freshness = document.getElementById('freshness');
+
+      function updateFreshness() {
+        const now = Date.now();
+        const ageSeconds = Math.max(0, Math.floor((now - updatedAt) / 1000));
+        const untilNext = Math.max(0, Math.ceil((nextCheckAt - now) / 1000));
+        freshness.textContent = ageSeconds < 60
+          ? `Updated ${ageSeconds}s ago · next check in ${untilNext}s`
+          : `Updated ${Math.floor(ageSeconds / 60)}m ago · next check soon`;
+      }
+
+      updateFreshness();
+      window.setInterval(updateFreshness, 1000);
+    })();
+  </script>
+</body>
+</html>

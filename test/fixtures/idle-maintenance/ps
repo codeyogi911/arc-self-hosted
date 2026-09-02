@@ -1,0 +1,4 @@
+#!/bin/bash
+set -euo pipefail
+
+printf ' %s\n' "${FAKE_RSS_KIB:-0}"
